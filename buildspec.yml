@@ -6,7 +6,7 @@ phases:
       python: 3.12
     commands:
       - echo "Upgrading pip..."
-      - python -m pip install --upgrade pip
+      - python -m pip install --upgrade pip setuptools wheel
       - echo "Installing dependencies..."
       - pip install -r requirements.txt -t lib
 
@@ -21,7 +21,5 @@ phases:
   post_build:
     commands:
       - echo "Updating Lambda Function..."
-      - aws lambda update-function-code \
-          --function-name github-to-lambda-demo \
-          --zip-file fileb://deployment_package.zip
-      - echo "DONE!"
+      - aws lambda update-function-code --function-name github-to-lambda-demo --zip-file fileb://deployment_package.zip
+      - echo "DONE!!"
