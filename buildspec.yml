@@ -18,7 +18,7 @@ phases:
 
   pre_build:
     commands:
-      - echo "Cleaning old packages..."
+      - echo "Cleaning previous deployment package..."
       - rm -f deployment_package.zip
 
   build:
@@ -53,4 +53,17 @@ phases:
           --destination "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"prefix\":\"$SIGNED_PREFIX\"}}" \
           --client-request-token "$(date +%s)"
 
-      - echo "Post-build completed."
+      - echo "Waiting for signing to complete..."
+      - |
+        SIGNED_KEY=$(aws s3 ls s3://$S3_BUCKET/$SIGNED_PREFIX --recursive | awk '{print $4}' | sort | tail -n1)
+        echo "Signed artifact: $SIGNED_KEY"
+
+      - echo "Updating Lambda function with signed code..."
+      - aws lambda update-function-code \
+          --function-name $LAMBDA_FUNCTION_NAME \
+          --s3-bucket $S3_BUCKET \
+          --s3-key $SIGNED_KEY
+
+artifacts:
+  files:
+    - deployment_package.zip
