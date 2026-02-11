@@ -5,58 +5,37 @@ env:
     S3_BUCKET: "function-sample-signer-bucket"
     UNSIGNED_KEY: "unsigned-code/deployment_package.zip"
     SIGNED_PREFIX: "signed-code/"
-    LAMBDA_FUNCTION: "github-to-lambda-demo"
-    SIGNING_PROFILE: "github_to_lambda_demo_signer"
 
 phases:
   install:
     runtime-versions:
-      python: 3.9
+      python: 3.11
     commands:
       - echo "Installing dependencies..."
       - pip install -r requirements.txt -t .
-
   pre_build:
     commands:
-      - echo "Cleaning old packages..."
+      - echo "Cleaning previous build..."
       - rm -f deployment_package.zip
-
   build:
     commands:
       - echo "Packaging Lambda function..."
       - zip -r deployment_package.zip .
-
   post_build:
     commands:
       - echo "Uploading unsigned Lambda package to S3..."
       - aws s3 cp deployment_package.zip s3://$S3_BUCKET/$UNSIGNED_KEY
-
-      - echo "Enabling versioning on S3 bucket if not enabled..."
+      - echo "Enabling versioning if not already enabled..."
       - aws s3api put-bucket-versioning --bucket $S3_BUCKET --versioning-configuration Status=Enabled
-
-      - echo "Getting latest version ID of unsigned Lambda..."
-      - VERSION_ID=$(aws s3api list-object-versions \
-          --bucket $S3_BUCKET \
-          --prefix $UNSIGNED_KEY \
-          --query 'Versions[?IsLatest].VersionId' \
-          --output text)
-      - echo "Latest Version ID: $VERSION_ID"
-
+      - echo "Getting the latest version ID of unsigned code..."
+      - VERSION_ID=$(aws s3api list-object-versions --bucket $S3_BUCKET --prefix $UNSIGNED_KEY --query 'Versions[?IsLatest==`true`].VersionId' --output text)
+      - echo "VERSION_ID=$VERSION_ID"
       - echo "Starting AWS Signer job..."
       - aws signer start-signing-job \
-          --source "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"key\":\"$UNSIGNED_KEY\",\"version\":\"${VERSION_ID}\"}}" \
-          --destination "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"prefix\":\"$SIGNED_PREFIX\"}}" \
+          --source '{"s3":{"bucketName":"'"$S3_BUCKET"'","key":"'"$UNSIGNED_KEY"'","version":"'"$VERSION_ID"'"}}' \
+          --destination '{"s3":{"bucketName":"'"$S3_BUCKET"'","prefix":"'"$SIGNED_PREFIX"'"}}' \
+          --profile-name github_to_lambda_demo_signer \
           --client-request-token "$(date +%s)"
-
-      - echo "Waiting for signed object (add delay if necessary)..."
-
-      # Optional: deploy signed Lambda if ready
-      # - aws lambda update-function-code \
-      #     --function-name $LAMBDA_FUNCTION \
-      #     --s3-bucket $S3_BUCKET \
-      #     --s3-key "${SIGNED_PREFIX}deployment_package.zip"
-      #     --publish
-
 artifacts:
   files:
     - deployment_package.zip
