@@ -1,53 +1,20 @@
 version: 0.2
 
-env:
-  variables:
-    S3_BUCKET: "function-sample-signer-bucket"
-    UNSIGNED_KEY: "unsigned-code/deployment_package.zip"
-    SIGNED_PREFIX: "signed-code/"
-    SIGNING_PROFILE: "github_to_lambda_demo_signer"
-
 phases:
   install:
     runtime-versions:
-      python: 3.11
+      python: 3.9
     commands:
-      - echo "Installing dependencies..."
-      - python -m pip install --upgrade pip
       - pip install -r requirements.txt -t .
-
-  pre_build:
-    commands:
-      - echo "Cleaning old packages..."
-      - rm -f deployment_package.zip
-      - echo "Packaging Lambda function..."
-      - zip -r deployment_package.zip .
-
   build:
     commands:
-      - echo "Uploading unsigned package to S3..."
-      - aws s3 cp deployment_package.zip s3://$S3_BUCKET/$UNSIGNED_KEY
-
+      - echo "Packaging Lambda..."
+      - zip -r deployment_package.zip .
+      - echo "Uploading to S3..."
+      - aws s3 cp deployment_package.zip s3://function-sample-signer-bucket/unsigned-code/deployment_package.zip
   post_build:
     commands:
-      - echo "Enabling versioning on S3 bucket (if not already)..."
-      - aws s3api put-bucket-versioning --bucket $S3_BUCKET --versioning-configuration Status=Enabled
-
-      - echo "Fetching latest version ID of unsigned package..."
-      - VERSION_ID=$(aws s3api list-object-versions \
-          --bucket $S3_BUCKET \
-          --prefix $UNSIGNED_KEY \
-          --query 'Versions[?IsLatest==`true`].VersionId' \
-          --output text)
-      - echo "Latest version ID: $VERSION_ID"
-
+      - echo "Getting S3 object version..."
+      - VERSION_ID=$(aws s3api list-object-versions --bucket function-sample-signer-bucket --prefix unsigned-code/deployment_package.zip --query 'Versions[?IsLatest==`true`].VersionId' --output text)
       - echo "Starting AWS Signer job..."
-      - aws signer start-signing-job \
-          --source "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"key\":\"$UNSIGNED_KEY\",\"version\":\"$VERSION_ID\"}}" \
-          --destination "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"prefix\":\"$SIGNED_PREFIX\"}}" \
-          --profile-name $SIGNING_PROFILE \
-          --client-request-token "$(date +%s)"
-
-artifacts:
-  files:
-    - '**/*'
+      - aws signer start-signing-job --source "{\"s3\":{\"bucketName\":\"function-sample-signer-bucket\",\"key\":\"unsigned-code/deployment_package.zip\",\"version\":\"$VERSION_ID\"}}" --destination "{\"s3\":{\"bucketName\":\"function-sample-signer-bucket\",\"prefix\":\"signed-code/\"}}" --profile-name github_to_lambda_demo_signer --client-request-token "$(date +%s)"
