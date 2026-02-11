@@ -44,7 +44,7 @@ phases:
           --prefix $UNSIGNED_KEY \
           --query 'Versions[?IsLatest].VersionId' \
           --output text)
-      - echo "Version ID: $VERSION_ID"
+        echo "Version ID: $VERSION_ID"
 
       - echo "Starting AWS Signer job..."
       - |
