@@ -32,10 +32,14 @@ phases:
       - aws s3 cp deployment_package.zip s3://$S3_BUCKET/$UNSIGNED_KEY
 
       - echo "Ensuring bucket versioning is enabled..."
-      - aws s3api put-bucket-versioning --bucket $S3_BUCKET --versioning-configuration Status=Enabled || echo "Versioning already enabled"
+      - |
+        aws s3api put-bucket-versioning \
+          --bucket $S3_BUCKET \
+          --versioning-configuration Status=Enabled || echo "Versioning already enabled"
 
       - echo "Fetching latest object version ID..."
-      - VERSION_ID=$(aws s3api list-object-versions \
+      - |
+        VERSION_ID=$(aws s3api list-object-versions \
           --bucket $S3_BUCKET \
           --prefix $UNSIGNED_KEY \
           --query 'Versions[?IsLatest].VersionId' \
@@ -43,9 +47,10 @@ phases:
       - echo "Version ID: $VERSION_ID"
 
       - echo "Starting AWS Signer job..."
-      - aws signer start-signing-job \
+      - |
+        aws signer start-signing-job \
           --source "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"key\":\"$UNSIGNED_KEY\",\"version\":\"$VERSION_ID\"}}" \
           --destination "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"prefix\":\"$SIGNED_PREFIX\"}}" \
           --client-request-token "$(date +%s)"
 
-      - echo "Lambda package signed. You can update Lambda using the signed object if desired."
+      - echo "Post-build completed."
