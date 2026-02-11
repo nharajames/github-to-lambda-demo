@@ -29,11 +29,11 @@ phases:
       - echo "Starting AWS Signer job..."
       - |
         SIGNING_JOB_ID=$(aws signer start-signing-job \
-            --source "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"key\":\"$UNSIGNED_KEY\",\"version\":\"$VERSION_ID\"}}" \
-            --destination "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"prefix\":\"$SIGNED_PREFIX\"}}" \
-            --profile-name $SIGNING_PROFILE \
-            --client-request-token "$(date +%s)" \
-            --query 'JobId' --output text)
+          --source "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"key\":\"$UNSIGNED_KEY\",\"version\":\"$VERSION_ID\"}}" \
+          --destination "{\"s3\":{\"bucketName\":\"$S3_BUCKET\",\"prefix\":\"$SIGNED_PREFIX\"}}" \
+          --profile-name $SIGNING_PROFILE \
+          --client-request-token "$(date +%s)" \
+          --query 'JobId' --output text)
       - echo "Signer Job ID: $SIGNING_JOB_ID"
       - echo "Waiting for signing to complete..."
       - |
@@ -51,9 +51,9 @@ phases:
       - |
         SIGNED_KEY="${SIGNED_PREFIX}$(basename $UNSIGNED_KEY)"
         aws lambda update-function-code \
-            --function-name $LAMBDA_FUNCTION_NAME \
-            --s3-bucket $S3_BUCKET \
-            --s3-key $SIGNED_KEY
+          --function-name $LAMBDA_FUNCTION_NAME \
+          --s3-bucket $S3_BUCKET \
+          --s3-key $SIGNED_KEY
       - echo "Lambda updated successfully!"
 
 artifacts:
