@@ -11,7 +11,7 @@ def lambda_handler(event, context):
         if not data:
             return {
                 "statusCode": 400,
-                "error": "No data provided",
+                "error": "No data provided to me",
                 "message": "Please provide 'data' as a list of records"
             }
 
