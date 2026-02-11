@@ -5,28 +5,27 @@ phases:
     runtime-versions:
       python: 3.12
     commands:
-      - echo "Upgrading pip..."
-      - python -m pip install --upgrade pip
       - echo "Installing dependencies..."
       - pip install -r requirements.txt -t lib
 
   build:
     commands:
-      - echo "Zipping deployment package..."
-      - cd lib
-      - zip -r9 ../deployment_package.zip .
-      - cd ..
-      - zip -g deployment_package.zip lambda_function.py
+      - echo "Creating deployment package..."
+      - zip -r deployment_package.zip lambda_function.py lib/
 
   post_build:
     commands:
-      - echo "Uploading unsigned code to S3..."
+      - echo "Uploading unsigned package to S3..."
       - aws s3 cp deployment_package.zip s3://function-sample-signer-bucket/unsigned-code/deployment_package.zip
-      - echo "Signing Lambda package..."
+      - VERSION_ID=$(aws s3api list-object-versions --bucket function-sample-signer-bucket --prefix unsigned-code/deployment_package.zip --query 'Versions[0].VersionId' --output text)
+      - echo "Starting signing job..."
       - aws signer start-signing-job \
-          --source s3={"bucketName":"function-sample-signer-bucket","key":"unsigned-code/deployment_package.zip"} \
-          --destination s3={"bucketName":"function-sample-signer-bucket","key":"signed-code/"} \
+          --source "{\"s3\":{\"bucketName\":\"function-sample-signer-bucket\",\"key\":\"unsigned-code/deployment_package.zip\",\"version\":\"$VERSION_ID\"}}" \
+          --destination "{\"s3\":{\"bucketName\":\"function-sample-signer-bucket\",\"prefix\":\"signed-code/\"}}" \
           --profile-name github_to_lambda_demo_signer \
-          --client-request-token $(date +%s)
+          --client-request-token "$(date +%s)"
+      - echo "Waiting for signing job to complete..."
+      # optionally, you can implement a wait or poll loop here
 
-      - echo "DONE!!"
+      # Optional: Deploy signed code to Lambda after signing
+      # - aws lambda update-function-code --function-name github-to-lambda-demo --s3-bucket function-sample-signer-bucket --s3-key signed-code/deployment_package.zip
